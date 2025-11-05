@@ -16,7 +16,8 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
 
 # Database configuration
-DATABASE = '/home/claude/milk_tracker.db'
+import os
+DATABASE = os.path.join(os.path.dirname(__file__), 'milk_tracker.db')
 
 def get_db():
     """Create database connection"""
@@ -28,7 +29,8 @@ def init_db():
     """Initialize the database with schema"""
     with app.app_context():
         conn = get_db()
-        with open('/home/claude/schema.sql', 'r') as f:
+        schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
+        with open(schema_path, 'r') as f:
             conn.executescript(f.read())
         conn.commit()
         conn.close()
@@ -36,7 +38,7 @@ def init_db():
 
 def migrate_json_data():
     """Migrate existing JSON data to SQL database"""
-    json_file = '/home/claude/milk-tracker-data.json'
+    json_file = os.path.join(os.path.dirname(__file__), 'milk-tracker-data.json')
     if not os.path.exists(json_file):
         print("⚠️  No JSON data to migrate")
         return
