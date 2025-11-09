@@ -1,17 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // For deployment
+  // Optimized for static export - works on Netlify/Vercel
   output: 'standalone',
-  // API proxy to avoid CORS issues
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/:path*',
-      },
-    ];
-  },
 }
 
 module.exports = nextConfig

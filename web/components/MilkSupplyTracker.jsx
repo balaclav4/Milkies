@@ -2,12 +2,21 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { TrendingUp, TrendingDown, Minus, Plus, Trash2, Calendar, RefreshCw, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Plus, Trash2, Calendar, RefreshCw, Download, LogOut } from 'lucide-react';
+import {
+  getPumpingSessions,
+  addPumpingSession,
+  deletePumpingSession,
+  getFeedings,
+  addFeeding,
+  deleteFeeding,
+  getDailyStats,
+  getSummaryStats,
+  getTodayStats,
+  exportData as exportDataService
+} from '../lib/dataService';
 
-// API Configuration - use /api which will be proxied by Next.js
-const API_BASE_URL = '/api';
-
-export default function MilkSupplyTracker() {
+export default function MilkSupplyTracker({ session, onSignOut }) {
   const [activeTab, setActiveTab] = useState('pumping');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,45 +38,40 @@ export default function MilkSupplyTracker() {
   const fetchData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Fetch pumping data
-      const pumpingRes = await fetch(`${API_BASE_URL}/pumping`);
-      const pumpingJson = await pumpingRes.json();
-      if (pumpingJson.success) {
-        setPumpingData(pumpingJson.data);
+      const pumpingResult = await getPumpingSessions();
+      if (pumpingResult.success) {
+        setPumpingData(pumpingResult.data);
       }
-      
+
       // Fetch feeding data
-      const feedingRes = await fetch(`${API_BASE_URL}/feeding`);
-      const feedingJson = await feedingRes.json();
-      if (feedingJson.success) {
-        setFeedingData(feedingJson.data);
+      const feedingResult = await getFeedings();
+      if (feedingResult.success) {
+        setFeedingData(feedingResult.data);
       }
-      
+
       // Fetch daily stats
-      const statsRes = await fetch(`${API_BASE_URL}/stats/daily`);
-      const statsJson = await statsRes.json();
-      if (statsJson.success) {
-        setDailyStats(statsJson.data);
+      const statsResult = await getDailyStats();
+      if (statsResult.success) {
+        setDailyStats(statsResult.data);
       }
-      
+
       // Fetch summary stats
-      const summaryRes = await fetch(`${API_BASE_URL}/stats/summary?days=30`);
-      const summaryJson = await summaryRes.json();
-      if (summaryJson.success) {
-        setSummaryStats(summaryJson.data);
+      const summaryResult = await getSummaryStats(30);
+      if (summaryResult.success) {
+        setSummaryStats(summaryResult.data);
       }
-      
+
       // Fetch today's stats
-      const todayRes = await fetch(`${API_BASE_URL}/stats/today`);
-      const todayJson = await todayRes.json();
-      if (todayJson.success) {
-        setTodayStats(todayJson.data);
+      const todayResult = await getTodayStats();
+      if (todayResult.success) {
+        setTodayStats(todayResult.data);
       }
-      
+
     } catch (err) {
-      setError('Failed to fetch data. Make sure the API server is running.');
+      setError('Failed to fetch data. Please try again.');
       console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
@@ -85,20 +89,10 @@ export default function MilkSupplyTracker() {
       alert('Please fill in all fields');
       return;
     }
-    
+
     try {
-      const response = await fetch(`${API_BASE_URL}/pumping`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: newDate,
-          time: newTime,
-          amount: parseFloat(newAmount)
-        })
-      });
-      
-      const result = await response.json();
-      
+      const result = await addPumpingSession(newDate, newTime, parseFloat(newAmount));
+
       if (result.success) {
         setNewTime('');
         setNewAmount('');
@@ -113,26 +107,15 @@ export default function MilkSupplyTracker() {
   };
 
   // Add feeding
-  const addFeeding = async () => {
+  const addFeedingHandler = async () => {
     if (!newDate || !newTime || !newAmount) {
       alert('Please fill in all fields');
       return;
     }
-    
+
     try {
-      const response = await fetch(`${API_BASE_URL}/feeding`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: newDate,
-          time: newTime,
-          amount: parseFloat(newAmount),
-          nursed: newNursed
-        })
-      });
-      
-      const result = await response.json();
-      
+      const result = await addFeeding(newDate, newTime, parseFloat(newAmount), newNursed);
+
       if (result.success) {
         setNewTime('');
         setNewAmount('');
@@ -150,14 +133,10 @@ export default function MilkSupplyTracker() {
   // Delete pump session
   const deletePumpSession = async (id) => {
     if (!confirm('Are you sure you want to delete this pump session?')) return;
-    
+
     try {
-      const response = await fetch(`${API_BASE_URL}/pumping/${id}`, {
-        method: 'DELETE'
-      });
-      
-      const result = await response.json();
-      
+      const result = await deletePumpingSession(id);
+
       if (result.success) {
         fetchData(); // Reload data
       } else {
@@ -170,16 +149,12 @@ export default function MilkSupplyTracker() {
   };
 
   // Delete feeding
-  const deleteFeeding = async (id) => {
+  const deleteFeedingHandler = async (id) => {
     if (!confirm('Are you sure you want to delete this feeding?')) return;
-    
+
     try {
-      const response = await fetch(`${API_BASE_URL}/feeding/${id}`, {
-        method: 'DELETE'
-      });
-      
-      const result = await response.json();
-      
+      const result = await deleteFeeding(id);
+
       if (result.success) {
         fetchData(); // Reload data
       } else {
@@ -194,9 +169,8 @@ export default function MilkSupplyTracker() {
   // Export data
   const exportData = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/export`);
-      const result = await response.json();
-      
+      const result = await exportDataService();
+
       if (result.success) {
         const dataStr = JSON.stringify(result.data, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -271,7 +245,7 @@ export default function MilkSupplyTracker() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-purple-900 mb-2">Milk Supply Tracker</h1>
-              <p className="text-gray-600">Connected to database • Real-time sync</p>
+              <p className="text-gray-600">Your personal tracking dashboard • {session?.user?.email}</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -287,6 +261,13 @@ export default function MilkSupplyTracker() {
               >
                 <Download className="w-4 h-4" />
                 Export
+              </button>
+              <button
+                onClick={onSignOut}
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
               </button>
             </div>
           </div>
@@ -687,7 +668,7 @@ export default function MilkSupplyTracker() {
                 </div>
                 <div className="flex items-end">
                   <button
-                    onClick={addFeeding}
+                    onClick={addFeedingHandler}
                     className="w-full bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition"
                   >
                     <Plus className="w-5 h-5" />
@@ -733,7 +714,7 @@ export default function MilkSupplyTracker() {
                               </div>
                             </div>
                             <button
-                              onClick={() => deleteFeeding(feed.id)}
+                              onClick={() => deleteFeedingHandler(feed.id)}
                               className="text-red-500 hover:text-red-700 transition"
                             >
                               <Trash2 className="w-4 h-4" />
